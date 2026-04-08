@@ -32,4 +32,87 @@ with st.form("audit_form"):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("###
+        st.markdown("### 🌏 Caja de Asia")
+        ah = st.number_input("Asia High", format="%.4f", value=1.0920)
+        al = st.number_input("Asia Low", format="%.4f", value=1.0880)
+        now_p = st.number_input("Precio Actual", format="%.4f", value=1.0905)
+
+    with col2:
+        st.markdown("### 📊 Valor de Ayer")
+        pdh = st.number_input("PDH (Máximo)", format="%.4f", value=1.0950)
+        pdl = st.number_input("PDL (Mínimo)", format="%.4f", value=1.0850)
+        poc = st.number_input("POC (Valor)", format="%.4f", value=1.0900)
+
+    with col3:
+        st.markdown("### ⛓️ Contexto")
+        basis = st.number_input("Arbitraje (Puntos)", value=10.0)
+        bias = st.selectbox("Sesgo Diario", ["Alcista", "Bajista", "Rango"])
+        session = st.selectbox("Sesión Actual", ["Londres", "Nueva York"])
+
+    # BOTÓN DE ACCIÓN
+    submitted = st.form_submit_button("AUDITAR SESIÓN")
+
+# --- LÓGICA Y RESULTADOS (Solo se muestran al dar click) ---
+if submitted:
+    # Cálculos
+    r_size = ah - al
+    sd15_p = ah + (r_size * 1.5)
+    sd15_n = al - (r_size * 1.5)
+    dist_poc = (now_p - poc) * 10000
+    
+    # Lógica de Estado
+    state = "ESPERA"
+    color = "#f59e0b"
+    if now_p < al:
+        state = "JUDAS LONG" if now_p >= sd15_n else "EXPANSIÓN BAJA"
+        color = "#00ff41" if "LONG" in state else "#ef4444"
+    elif now_p > ah:
+        state = "JUDAS SHORT" if now_p <= sd15_p else "EXPANSIÓN ALZA"
+        color = "#ef4444" if "SHORT" in state else "#00ff41"
+
+    st.divider()
+
+    # Layout de Resultados
+    res_col1, res_col2 = st.columns([1.5, 1])
+
+    with res_col1:
+        st.header("🎯 Veredicto Técnico")
+        st.metric("ESTADO ACTUAL", state)
+        
+        # Sensor Arbitraje < 40
+        if abs(basis) < 40:
+            st.success(f"✅ ARBITRAJE ESTABLE: {basis:.1f} pts")
+        else:
+            st.error(f"🚨 PRESIÓN EN ARBITRAJE: {basis:.1f} pts")
+            
+        st.write(f"**Distancia al Valor (POC):** {abs(dist_poc):.1f} pips ({'Sobre' if dist_poc > 0 else 'Bajo'})")
+        
+        # Niveles Proyectados
+        st.markdown("### 📏 Niveles de Referencia")
+        st.write(f"Venta (1.5 SD): **{sd15_p:.4f}**")
+        st.write(f"Compra (-1.5 SD): **{sd15_n:.4f}**")
+        st.write(f"Rango HTF: **{pdl:.4f} - {pdh:.4f}**")
+
+    with res_col2:
+        st.header("📸 Snapshot")
+        # Variables de texto para el Snapshot
+        p_txt = f"{now_p:.4f}"
+        b_txt = f"{basis:.1f}"
+        poc_txt = f"{poc:.4f}"
+        range_txt = f"{pdl:.4f}-{pdh:.4f}"
+        
+        st.markdown(f"""
+        <div class="card">
+            <h2 style="color:{color};">{state}</h2>
+            <hr style="border: 0.5px solid #374151;">
+            <p><b>Precio:</b> {p_txt}</p>
+            <p><b>Basis:</b> {b_txt} pts</p>
+            <p><b>POC Ayer:</b> {poc_txt}</p>
+            <p><b>Rango HTF:</b> {range_txt}</p>
+            <p><b>Bias:</b> {bias}</p>
+            <hr style="border: 0.5px solid #374151;">
+            <p style="font-size:0.8em; color:#8b949e;">{f_ny} {h_ny} NY TIME</p>
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.info("Ingresa los datos arriba y presiona el botón para generar el análisis.")
