@@ -1,79 +1,73 @@
 import streamlit as st
 from datetime import datetime
 
-# Configuración Pro
-st.set_page_config(page_title="Regla Cero V3.1 - Snapshot Ready", layout="wide")
+# Configuración de Terminal V5.0
+st.set_page_config(page_title="REGLA CERO V5.0 | Pro Terminal", layout="wide")
 
-# Estilo Dark Pro
+# --- ESTÉTICA NEÓN PROFESIONAL ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; color: white; }
-    .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    .main { background-color: #05070a; color: #e0e0e0; }
+    [data-testid="stSidebar"] { background-color: #0a0d12; border-right: 1px solid #1f2937; }
+    .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; }
+    .snapshot-card { background-color: #111827; padding: 20px; border: 2px solid #374151; border-radius: 15px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR: DATOS MAESTROS ---
-st.sidebar.header("🛡️ Auditoría Regla Cero")
+# --- SIDEBAR: INPUTS TÉCNICOS ---
+st.sidebar.title("🛠️ PANEL DE DATOS")
 
-with st.sidebar.expander("1. Energía (CME/COT)", expanded=True):
-    cot_bias = st.selectbox("Sesgo COT", ["Comprador (Long)", "Vendedor (Short)", "Neutral"])
-    oi_delta = st.number_input("Variación OI", value=0, step=1000)
-    dxy_state = st.selectbox("DXY", ["Baja", "Sube", "Rango"])
+# 1. ARBITRAJE FUTUROS/SPOT
+with st.sidebar.expander("1. ARBITRAJE & BASIS", expanded=True):
+    f_price = st.number_input("Precio Futuros (CME)", format="%.5f", value=1.09100)
+    s_price = st.number_input("Precio Spot (Broker)", format="%.5f", value=1.09085)
+    basis = (f_price - s_price) * 10000  # Cálculo en Pips/Puntos
+    st.caption(f"Basis Actual: {basis:.2f} pips")
 
-with st.sidebar.expander("2. Mapa Maestro (TV)", expanded=True):
-    price_zone = st.select_slider("Zona", options=["Discount", "Equilibrium", "Premium"], value="Equilibrium")
-    liquidity_target = st.selectbox("Objetivo (ERL)", ["PDH", "PDL", "Asia H/L", "Equal Highs"])
+# 2. NIVELES DE AYER (H1/D1)
+with st.sidebar.expander("2. PREVIOUS DAY LEVELS", expanded=True):
+    p_high = st.number_input("PDH (Máximo)", format="%.5f", value=1.09500)
+    p_low = st.number_input("PDL (Mínimo)", format="%.5f", value=1.08500)
+    p_poc = st.number_input("POC (Punto Control)", format="%.5f", value=1.09000)
 
-with st.sidebar.expander("3. Confirmación (ATAS)", expanded=True):
-    cvd_behavior = st.selectbox("CVD", ["Divergencia Bullish", "Divergencia Bearish", "Absorción", "Agresión"])
-    dom_wall = st.number_input("Muro DOM en:", format="%.5f", value=0.00000)
+# 3. ASIA RANGE
+with st.sidebar.expander("3. ASIA SESSION", expanded=True):
+    a_high = st.number_input("Asia High", format="%.5f", value=1.09200)
+    a_low = st.number_input("Asia Low", format="%.5f", value=1.08800)
 
-# --- LÓGICA DE ESCENARIOS ---
-decision = "ESPERAR"
-confidence = "Baja"
-if cot_bias == "Comprador (Long)" and oi_delta > 5000 and dxy_state == "Baja":
-    decision = "COMPRA A+" if price_zone == "Discount" else "EVITAR COMPRAS"
-    confidence = "Alta" if "COMPRA" in decision else "Nula"
-elif cot_bias == "Vendedor (Short)" and oi_delta > 5000 and dxy_state == "Sube":
-    decision = "VENTA A+" if price_zone == "Premium" else "EVITAR VENTAS"
-    confidence = "Alta" if "VENTA" in decision else "Nula"
+# 4. CONTEXTO ACTUAL
+with st.sidebar.expander("4. CONTEXTO & PRECIO", expanded=True):
+    c_price = st.number_input("Precio Actual", format="%.5f", value=1.09050)
+    d_bias = st.selectbox("Marco Diario", ["Expansión Alcista", "Expansión Bajista", "Consolidación", "Reversa HTF"])
+    oi_val = st.number_input("Variación OI", value=0)
 
-# --- DASHBOARD DE TRABAJO ---
-st.title("🏹 Sistema de Auditoría V3.1")
-c1, c2, c3 = st.columns(3)
-c1.metric("GATILLO", decision)
-c2.metric("CONFIANZA", confidence)
-c3.metric("OI DETECTADO", f"{oi_delta} CTR")
+# 5. RIESGO
+with st.sidebar.expander("5. GESTIÓN", expanded=False):
+    balance = st.number_input("Balance ($)", value=10000)
+    sl_pips = st.number_input("SL (Pips)", value=10)
 
-st.divider()
+# --- LÓGICA DE ESCENARIOS V5.0 ---
+# Definición de zonas
+posicion_asia = "Dentro del Rango"
+if c_price > a_high: posicion_asia = "Liquidando Asia High (S)"
+elif c_price < a_low: posicion_asia = "Liquidando Asia Low (B)"
 
-# --- FICHA TÉCNICA PARA CAPTURA DE PANTALLA ---
-st.subheader("📸 Ficha de Cierre (Toma una captura de pantalla)")
+# Determinación del Gatillo
+gatillo = "MONITORIZANDO"
+color = "#f59e0b"
 
-# Colores para la ficha según el gatillo
-if "COMPRA" in decision: card_color = "#00ff41" # Verde
-elif "VENTA" in decision: card_color = "#ff4b4b" # Rojo
-else: card_color = "#f59e0b" # Naranja (Espera)
+if d_bias == "Expansión Alcista" and c_price < a_low and c_price >= p_poc:
+    gatillo = "COMPRA (JUDAS SWEEP)"
+    color = "#00ff41"
+elif d_bias == "Expansión Bajista" and c_price > a_high and c_price <= p_poc:
+    gatillo = "VENTA (JUDAS SWEEP)"
+    color = "#ff4b4b"
 
-# Generación de la Ficha en HTML (limpia para screenshot)
-today_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-muro_text = "No reportado" if dom_wall == 0 else f"{dom_wall:.5f}"
+# --- DASHBOARD PRINCIPAL ---
+st.title("🏹 TERMINAL REGLA CERO V5.0")
+st.subheader(f"Contexto: {d_bias} | {posicion_asia}")
 
-html_card = f"""
-<div style="font-family: Arial, sans-serif; padding: 25px; background-color: #161b22; color: white; border: 2px solid #30363d; border-radius: 15px; width: 450px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); margin: auto;">
-    <h2 style="color: {card_color}; margin-top: 0; text-align: center;">Ficha Regla Cero</h2>
-    <p style="margin: 5px 0; text-align: center;"><b>📅 Fecha:</b> {today_date}</p>
-    <hr style="border: 1px solid #30363d; margin: 15px 0;">
-    <p style="margin: 8px 0; font-size: 1.1em;"><b>🎯 GATILLO:</b> <span style="color: {card_color}; font-weight: bold;">{decision}</span></p>
-    <p style="margin: 8px 0;"><b>🛡️ Confianza:</b> {confidence}</p>
-    <p style="margin: 8px 0;"><b>⛽ OI Detectado:</b> {oi_delta} contratos</p>
-    <p style="margin: 8px 0;"><b>🗺️ Zona de Precio:</b> {price_zone}</p>
-    <p style="margin: 8px 0;"><b>🎯 Objetivo (ERL):</b> {liquidity_target}</p>
-    <p style="margin: 8px 0;"><b>⚡ CVD ATAS:</b> {cvd_behavior}</p>
-    <p style="margin: 8px 0;"><b>🧱 Muro DOM:</b> {muro_text}</p>
-    <hr style="border: 1px solid #30363d; margin: 15px 0;">
-    <p style="font-style: italic; color: #8b949e; font-size: 0.9em; text-align: center;">"La disciplina es la mejor estrategia."</p>
-</div>
-"""
-st.markdown(html_card, unsafe_allow_html=True)
-st.caption("Nota: Esta tarjeta está diseñada para que le hagas una captura de pantalla y la guardes como imagen.")
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("GATILLO", gatillo)
+m2.metric("ARBITRAJE (BASIS)", f"{basis:.2f}")
+m3.metric("LOTAJE", f"
