@@ -40,8 +40,8 @@ if sesion_activa == "🇬🇧 LONDRES":
         a_l = st.number_input("Asia Low", format="%.4f", value=1.0880)
 
     with st.sidebar.expander("3. DESVIACIONES MANUALES", expanded=True):
-        sd_15_pos = st.number_input("SD +1.5 (Venta)", format="%.4f", value=a_h + 0.0015)
-        sd_15_neg = st.number_input("SD -1.5 (Compra)", format="%.4f", value=a_l - 0.0015)
+        sd_15_pos = st.number_input("SD +2.5 (Venta)", format="%.4f", value=a_h + 0.0015)
+        sd_15_neg = st.number_input("SD -2.5 (Compra)", format="%.4f", value=a_l - 0.0015)
     
     with st.sidebar.expander("4. ARBITRAJE & CONTEXTO", expanded=True):
         f_p = st.number_input("Futuros CME", format="%.4f", value=1.0910)
@@ -51,10 +51,7 @@ if sesion_activa == "🇬🇧 LONDRES":
         now_p = st.number_input("Precio Actual", format="%.4f", value=1.0905)
         bias_d = st.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
 
-    # Gestión de Riesgo
-    cap = st.sidebar.number_input("Capital $", value=10000)
-    sl_p = st.sidebar.number_input("SL Pips", value=10)
-
+    
     # --- LÓGICA DE GATILLO ---
     signal = "ESPERA"
     s_color = "#f59e0b"
