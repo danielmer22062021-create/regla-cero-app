@@ -3,15 +3,15 @@ from datetime import datetime
 import pytz
 
 # 1. TIEMPO NY
-ny_zone = pytz.timezone('America/New_York')
-ahora = datetime.now(ny_zone)
-h_ny = ahora.strftime("%H:%M")
-f_ny = ahora.strftime("%Y-%m-%d")
+tz_ny = pytz.timezone('America/New_York')
+now_ny = datetime.now(tz_ny)
+h_ny = now_ny.strftime("%H:%M")
+f_ny = now_ny.strftime("%Y-%m-%d")
 
 # 2. CONFIGURACIÓN
-st.set_page_config(page_title="REGLA CERO V9.4", layout="wide")
+st.set_page_config(page_title="REGLA CERO V9.5", layout="wide")
 
-# 3. CSS SEGURO
+# 3. CSS LIMPIO
 st.markdown("""
 <style>
     .main { background-color: #05070a; color: #e0e0e0; }
@@ -45,11 +45,33 @@ if sesion == "🇬🇧 LONDRES":
         now = st.sidebar.number_input("Precio Actual", format="%.4f", value=1.0905)
         bias = st.sidebar.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
 
-    # --- LÓGICA SD ---
-    def sd_calc(v): return ah + (r_size * v) if v > 0 else al + (r_size * v)
+    # --- CÁLCULO DE NIVELES (SIN FUNCIÓN DEF PARA EVITAR ERRORES) ---
+    sd_15_p = ah + (r_size * 1.5)
+    sd_25_p = ah + (r_size * 2.5)
+    sd_15_n = al - (r_size * 1.5)
+    sd_25_n = al - (r_size * 2.5)
     
-    # --- ESTADO ---
+    # --- LÓGICA DE ESTADO ---
     state = "ESPERA"
     color = "#f59e0b"
+    
     if now < al:
-        state = "JUDAS LONG" if now >=
+        if now >= sd_15_n:
+            state = "JUDAS SWEEP (LONG)"
+            color = "#00ff41"
+        else:
+            state = "CONTINUACIÓN BAJA"
+            color = "#ef4444"
+    elif now > ah:
+        if now <= sd_15_p:
+            state = "JUDAS SWEEP (SHORT)"
+            color = "#ef4444"
+        else:
+            state = "CONTINUACIÓN ALZA"
+            color = "#00ff41"
+
+    # --- INTERFAZ ---
+    st.markdown(f'<div class="session-header"><h1>🇬🇧 LONDON TERMINAL | NY: {h_ny}</h1></div>', unsafe_allow_html=True)
+    
+    c1, c2, c3 = st.columns(3)
+    c1.
