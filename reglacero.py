@@ -1,77 +1,117 @@
 import streamlit as st
 from datetime import datetime
-import pytz
 
-# 1. TIEMPO NY
-tz_ny = pytz.timezone('America/New_York')
-now_ny = datetime.now(tz_ny)
-h_ny = now_ny.strftime("%H:%M")
-f_ny = now_ny.strftime("%Y-%m-%d")
+# 1. Configuración Base
+st.set_page_config(page_title="REGLA CERO V8.6 | 4-Digit Radar", layout="wide")
 
-# 2. CONFIGURACIÓN
-st.set_page_config(page_title="REGLA CERO V9.5", layout="wide")
-
-# 3. CSS LIMPIO
+# 2. Estética Terminal
 st.markdown("""
-<style>
+    <style>
     .main { background-color: #05070a; color: #e0e0e0; }
-    .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; text-align: center; }
+    [data-testid="stSidebar"] { background-color: #0a0d12; border-right: 1px solid #1f2937; }
+    .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; }
     .card { background-color: #111827; padding: 20px; border: 1px solid #374151; border-radius: 15px; text-align: center; }
     .session-header { background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 20px; }
     .level-box { padding: 8px; border-radius: 5px; margin: 4px 0; text-align: center; font-size: 0.9em; border: 1px solid #30363d; font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# --- SIDEBAR: CENTRO DE MANDO ---
 st.sidebar.title("🎮 CENTRO DE MANDO")
-sesion = st.sidebar.radio("Elegir Sesión:", ["🇬🇧 LONDRES", "🇺🇸 NUEVA YORK"])
+sesion_activa = st.sidebar.radio("Elegir Sesión:", ["🇬🇧 LONDRES", "🇺🇸 NUEVA YORK"])
+
 st.sidebar.divider()
 
-if sesion == "🇬🇧 LONDRES":
-    with st.sidebar.expander("1. CAJA ASIA", expanded=True):
-        ah = st.sidebar.number_input("Asia High", format="%.4f", value=1.0920)
-        al = st.sidebar.number_input("Asia Low", format="%.4f", value=1.0880)
-        r_size = ah - al
+if sesion_activa == "🇬🇧 LONDRES":
+    st.sidebar.subheader("Configuración Londres")
+    
+    with st.sidebar.expander("1. RANGO DÍA ANTERIOR (HTF)", expanded=True):
+        pdh = st.number_input("PDH (Máximo Ayer)", format="%.4f", value=1.0950)
+        pdl = st.number_input("PDL (Mínimo Ayer)", format="%.4f", value=1.0850)
+        p_poc = st.number_input("POC (Valor Ayer)", format="%.4f", value=1.0900)
 
-    with st.sidebar.expander("2. VALOR AYER", expanded=True):
-        pdh = st.sidebar.number_input("PDH", format="%.4f", value=1.0950)
-        pdl = st.sidebar.number_input("PDL", format="%.4f", value=1.0850)
-        poc = st.sidebar.number_input("POC", format="%.4f", value=1.0900)
-    
-    with st.sidebar.expander("3. ARBITRAJE & PRECIO", expanded=True):
-        fp = st.sidebar.number_input("Futuros", format="%.4f", value=1.0910)
-        sp = st.sidebar.number_input("Spot", format="%.4f", value=1.0908)
-        basis = (fp - sp) * 100000 
-        now = st.sidebar.number_input("Precio Actual", format="%.4f", value=1.0905)
-        bias = st.sidebar.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
+    with st.sidebar.expander("2. CAJA ASIA", expanded=True):
+        a_h = st.number_input("Asia High", format="%.4f", value=1.0920)
+        a_l = st.number_input("Asia Low", format="%.4f", value=1.0880)
 
-    # --- CÁLCULO DE NIVELES (SIN FUNCIÓN DEF PARA EVITAR ERRORES) ---
-    sd_15_p = ah + (r_size * 1.5)
-    sd_25_p = ah + (r_size * 2.5)
-    sd_15_n = al - (r_size * 1.5)
-    sd_25_n = al - (r_size * 2.5)
+    with st.sidebar.expander("3. DESVIACIONES MANUALES", expanded=True):
+        sd_15_pos = st.number_input("SD +1.5 (Venta)", format="%.4f", value=a_h + 0.0015)
+        sd_15_neg = st.number_input("SD -1.5 (Compra)", format="%.4f", value=a_l - 0.0015)
     
-    # --- LÓGICA DE ESTADO ---
-    state = "ESPERA"
-    color = "#f59e0b"
+    with st.sidebar.expander("4. ARBITRAJE & CONTEXTO", expanded=True):
+        f_p = st.number_input("Futuros CME", format="%.4f", value=1.0910)
+        s_p = st.number_input("Spot Broker", format="%.4f", value=1.0908)
+        # Multiplicador para mantener escala de "puntos" (4 decimales -> 100000 capturaría pips fraccionales si existieran)
+        v_basis = (f_p - s_p) * 100000 
+        now_p = st.number_input("Precio Actual", format="%.4f", value=1.0905)
+        bias_d = st.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
+
+    # Gestión de Riesgo
+    cap = st.sidebar.number_input("Capital $", value=10000)
+    sl_p = st.sidebar.number_input("SL Pips", value=10)
+
+    # --- LÓGICA DE GATILLO ---
+    signal = "ESPERA"
+    s_color = "#f59e0b"
     
-    if now < al:
-        if now >= sd_15_n:
-            state = "JUDAS SWEEP (LONG)"
-            color = "#00ff41"
+    if bias_d == "Alcista" and now_p <= sd_15_neg:
+        signal = "JUDAS LONG"
+        s_color = "#00ff41"
+    elif bias_d == "Bajista" and now_p >= sd_15_pos:
+        signal = "JUDAS SHORT"
+        s_color = "#ff4b4b"
+
+    # --- INTERFAZ LONDRES ---
+    st.markdown('<div class="session-header"><h1>🇬🇧 LONDON SESSION TERMINAL</h1></div>', unsafe_allow_html=True)
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("ESTADO LND", signal)
+    m2.metric("BASIS (PTS)", f"{v_basis:.1f}")
+    m3.metric("LOTS", f"{(cap * 0.01) / (sl_p * 10) if sl_p > 0 else 0:.2f}")
+    m4.metric("SESGO", bias_d)
+
+    st.divider()
+
+    col_l, col_r = st.columns([1.5, 1])
+    with col_l:
+        st.subheader("🕵️ Radar de Niveles")
+        
+        # --- PRECIO VS VALOR DÍA ANTERIOR ---
+        dist_poc = (now_p - p_poc) * 10000
+        st.write(f"**Distancia al POC:** {'Sobre' if dist_poc > 0 else 'Bajo'} el POC ({abs(dist_poc):.1f} pips)")
+        
+        # --- ESTADO DENTRO DEL RANGO PDH/PDL ---
+        if pdl <= now_p <= pdh:
+            st.info(f"📍 Precio dentro del Rango HTF ({pdl:.4f} - {pdh:.4f})")
         else:
-            state = "CONTINUACIÓN BAJA"
-            color = "#ef4444"
-    elif now > ah:
-        if now <= sd_15_p:
-            state = "JUDAS SWEEP (SHORT)"
-            color = "#ef4444"
-        else:
-            state = "CONTINUACIÓN ALZA"
-            color = "#00ff41"
+            st.warning(f"🚀 Fuera de Rango: PDL {pdl:.4f} | PDH {pdh:.4f}")
 
-    # --- INTERFAZ ---
-    st.markdown(f'<div class="session-header"><h1>🇬🇧 LONDON TERMINAL | NY: {h_ny}</h1></div>', unsafe_allow_html=True)
-    
-    c1, c2, c3 = st.columns(3)
-    c1.
+        # Lógica de Arbitraje < 40
+        if abs(v_basis) < 40:
+            st.success(f"✅ Arbitraje Estable ({v_basis:.1f})")
+        else:
+            st.error(f"🚨 Presión en Arbitraje ({v_basis:.1f})")
+
+        st.write("---")
+        st.write("### 📏 Niveles Manuales")
+        st.markdown(f'<div class="level-box" style="color:#ff4b4b;">Venta SD +1.5: {sd_15_pos:.4f}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="level-box" style="color:#00ff41;">Compra SD -1.5: {sd_15_neg:.4f}</div>', unsafe_allow_html=True)
+
+    with col_r:
+        st.subheader("📸 London Snapshot")
+        fecha_h = datetime.now().strftime('%Y-%m-%d %H:%M')
+        st.markdown(f"""
+        <div class="card">
+            <h2 style="color:{s_color};">{signal}</h2>
+            <hr style="border-color:#374151;">
+            <p><b>Precio:</b> {now_p:.4f}</p>
+            <p><b>POC Ayer:</b> {p_poc:.4f}</p>
+            <p><b>Basis:</b> {v_basis:.1f} pts</p>
+            <hr style="border-color:#374151;">
+            <p style="font-size:0.8em; color:#8b949e;">{fecha_h}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+else:
+    st.markdown('<div class="session-header" style="background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);"><h1>🇺🇸 NEW YORK SESSION</h1></div>', unsafe_allow_html=True)
+    st.info("Configuración de NY pendiente.")
