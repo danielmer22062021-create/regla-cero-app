@@ -1,10 +1,10 @@
 import streamlit as st
 from datetime import datetime
 
-# Configuración Pro
-st.set_page_config(page_title="REGLA CERO V5.1 | Stable Terminal", layout="wide")
+# 1. Configuración de la Terminal
+st.set_page_config(page_title="REGLA CERO V5.2 | PRO", layout="wide")
 
-# --- ESTÉTICA DARK MODE ---
+# 2. Estética Profesional (CSS)
 st.markdown("""
     <style>
     .main { background-color: #05070a; color: #e0e0e0; }
@@ -14,73 +14,82 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR: ENTRADA DE DATOS ---
-st.sidebar.title("🛡️ AUDITORÍA TÉCNICA")
+# 3. Sidebar: Auditoría Técnica
+st.sidebar.title("AUDITORIA")
 
-# 1. ARBITRAJE
-with st.sidebar.expander("1. BASIS (FUTUROS/SPOT)", expanded=True):
-    f_price = st.number_input("Precio Futuros (CME)", format="%.5f", value=1.09100)
-    s_price = st.number_input("Precio Spot (Broker)", format="%.5f", value=1.09085)
-    # Cálculo matemático del Arbitraje
-    basis = (f_price - s_price) * 10000 
+with st.sidebar.expander("1. BASIS (ARBITRAJE)", expanded=True):
+    f_price = st.number_input("Futuros CME", format="%.5f", value=1.09100)
+    s_price = st.number_input("Spot Broker", format="%.5f", value=1.09085)
+    calc_basis = (f_price - s_price) * 10000 
 
-# 2. NIVELES HTF
-with st.sidebar.expander("2. NIVELES DÍA ANTERIOR", expanded=True):
-    p_high = st.number_input("Máximo (PDH)", format="%.5f", value=1.09500)
-    p_low = st.number_input("Mínimo (PDL)", format="%.5f", value=1.08500)
-    p_poc = st.number_input("Punto de Control (POC)", format="%.5f", value=1.09000)
+with st.sidebar.expander("2. NIVELES HTF", expanded=True):
+    p_high = st.number_input("PDH (Ayer)", format="%.5f", value=1.09500)
+    p_low = st.number_input("PDL (Ayer)", format="%.5f", value=1.08500)
+    p_poc = st.number_input("POC (Ayer)", format="%.5f", value=1.09000)
 
-# 3. ASIA RANGE
-with st.sidebar.expander("3. RANGO DE ASIA", expanded=True):
+with st.sidebar.expander("3. RANGO ASIA", expanded=True):
     a_high = st.number_input("Asia High", format="%.5f", value=1.09200)
     a_low = st.number_input("Asia Low", format="%.5f", value=1.08800)
 
-# 4. CONTEXTO ACTUAL
-with st.sidebar.expander("4. PRECIO & SESGO", expanded=True):
+with st.sidebar.expander("4. CONTEXTO", expanded=True):
     c_price = st.number_input("Precio Actual", format="%.5f", value=1.09050)
-    d_bias = st.selectbox("Marco Diario", ["Expansión Alcista", "Expansión Bajista", "Consolidación", "Reversa"])
-    dxy_trend = st.selectbox("DXY", ["Bajista 📉", "Alcista 📈", "Rango"])
-    oi_val = st.number_input("Variación OI", value=0)
+    d_bias = st.selectbox("Sesgo Diario", ["Alcista", "Bajista", "Rango"])
+    dxy_val = st.selectbox("DXY", ["Debil", "Fuerte", "Rango"])
+    oi_contracts = st.number_input("OI CME", value=0)
 
-# 5. RIESGO
-with st.sidebar.expander("5. GESTIÓN", expanded=False):
-    balance = st.number_input("Balance ($)", value=10000)
-    sl_pips = st.number_input("SL (Pips)", value=10)
+with st.sidebar.expander("5. GESTION", expanded=False):
+    balance = st.number_input("Capital $", value=10000)
+    sl_input = st.number_input("SL Pips", value=10)
 
-# --- LÓGICA DE ESCENARIOS ---
-gatillo = "MONITORIZANDO"
-color = "#f59e0b" # Naranja (Espera)
+# --- LOGICA DE TRADING ---
+gatillo = "ESPERA"
+status_color = "#f59e0b"
 
-# Lógica Judas Swing Alcista
-if d_bias == "Expansión Alcista" and c_price < a_low and c_price >= p_low:
-    gatillo = "COMPRA (JUDAS SWEEP)"
-    color = "#00ff41" # Verde
-# Lógica Judas Swing Bajista
-elif d_bias == "Expansión Bajista" and c_price > a_high and c_price <= p_high:
-    gatillo = "VENTA (JUDAS SWEEP)"
-    color = "#ff4b4b" # Rojo
+# Filtro de seguridad para lotaje (evitar division por cero)
+divisor = (sl_input * 10)
+lotaje_final = (balance * 0.01) / divisor if divisor > 0 else 0.0
 
-# --- INTERFAZ PRINCIPAL ---
-st.title("🛡️ TERMINAL REGLA CERO V5.1")
+if d_bias == "Alcista" and c_price < a_low and c_price >= p_low:
+    gatillo = "COMPRA (JUDAS)"
+    status_color = "#00ff41"
+elif d_bias == "Bajista" and c_price > a_high and c_price <= p_high:
+    gatillo = "VENTA (JUDAS)"
+    status_color = "#ff4b4b"
 
-# Métricas rápidas
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("GATILLO", gatillo)
-m2.metric("BASIS (PIPS)", f"{basis:.2f}")
-m3.metric("LOTS", f"{(balance * 0.01) / (sl_pips * 10):.2f}")
-m4.metric("OI INFO", f"{oi_val} CTR")
+# --- INTERFAZ ---
+st.title("🛡️ REGLA CERO - V5.2")
+
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+col_m1.metric("GATILLO", gatillo)
+col_m2.metric("BASIS", f"{calc_basis:.2f}")
+col_m3.metric("LOTS", f"{lotaje_final:.2f}")
+col_m4.metric("OI", f"{oi_contracts}")
 
 st.divider()
 
-# Layout de Análisis
-col_info, col_snap = st.columns([1.5, 1])
+left_col, right_col = st.columns([1.5, 1])
 
-with col_info:
-    st.subheader("📍 Análisis de Niveles")
-    # Distancia al POC
-    dist_poc = (c_price - p_poc) * 10000
-    st.write(f"**Precio vs POC:** {'Sobre' if dist_poc > 0 else 'Bajo'} el valor medio ({abs(dist_poc):.1f} pips)")
+with left_col:
+    st.subheader("Analisis de Flujo")
+    distancia_poc = (c_price - p_poc) * 10000
+    st.write(f"Distancia al POC: {distancia_poc:.1f} pips")
     
-    st.subheader("⛓️ Arbitraje (Order Flow)")
-    if abs(basis) > 2.5:
-        st.error(f"⚠️ BASIS ELEVADO: {basis:.2f}. Hay una gran
+    if abs(calc_basis) > 2.5:
+        st.warning(f"BASIS ALTO: {calc_basis:.2f}. Arbitraje bajo presion.")
+    else:
+        st.success("BASIS NORMAL. Arbitraje estable.")
+    
+    st.write("---")
+    st.checkbox("¿El precio esta en zona de valor?")
+    st.checkbox("¿Confirmacion en ATAS detectada?")
+
+with right_col:
+    # Ficha Snapshot limpia
+    st.markdown(f"""
+    <div class="snapshot-card">
+        <h3 style="color:{status_color}; text-align:center;">{gatillo}</h3>
+        <hr style="border-color:#374151;">
+        <p><b>Precio:</b> {c_price:.5f}</p>
+        <p><b>Asia:</b> {a_low:.5f} / {a_high:.5f}</p>
+        <p><b>POC:</b> {p_poc:.5f}</p>
+        <p><b>Basis:</b> {calc_basis
