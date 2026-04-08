@@ -1,95 +1,102 @@
 import streamlit as st
 
-# Configuración de la página
-st.set_page_config(page_title="Regla Cero - Motor de Escenarios", layout="wide")
+# Configuración de la página Pro
+st.set_page_config(page_title="Regla Cero V2.0 - Order Flow Engine", layout="wide")
 
-# Estilo personalizado (Dark Mode vibe)
+# Estilo Dark Pro
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: white; }
     .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    div.stButton > button:first-child { background-color: #00ff41; color: black; font-weight: bold; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR: INPUT DE DATOS (AUDITORÍA MANUAL) ---
-st.sidebar.header("📊 Auditoría de Sesión")
-st.sidebar.subheader("Paso 1: Macro (CME/COT)")
+# --- SIDEBAR: DATOS MAESTROS ---
+st.sidebar.header("🛡️ Auditoría Regla Cero")
 
-cot_bias = st.sidebar.selectbox("Sesgo COT", ["Net Long", "Net Short", "Neutral"])
-oi_delta = st.sidebar.number_input("Variación OI (Contratos)", value=0, step=500)
-dxy_trend = st.sidebar.selectbox("Tendencia DXY", ["Bajista (Soporte Roto)", "Alcista (Resistencia Rota)", "Rango / Indeciso"])
+# 1. MACRO (CME)
+with st.sidebar.expander("1. Energía (CME/COT)", expanded=True):
+    cot_bias = st.selectbox("Sesgo Semanal COT", ["Comprador (Long)", "Vendedor (Short)", "Neutral"])
+    oi_delta = st.number_input("Variación OI (Contratos)", value=0, step=1000)
+    dxy_state = st.selectbox("Estado DXY", ["Distribución (Baja)", "Acumulación (Sube)", "Rango"])
 
-st.sidebar.divider()
-st.sidebar.subheader("Paso 2: Mapa Maestro (TV)")
-pdh = st.sidebar.number_input("Price Daily High (PDH)", format="%.5f", value=1.09500)
-pdl = st.sidebar.number_input("Price Daily Low (PDL)", format="%.5f", value=1.08500)
-asia_low = st.sidebar.number_input("Asia Low", format="%.5f", value=1.08800)
+# 2. ESTRUCTURA (TradingView)
+with st.sidebar.expander("2. Mapa Maestro (TV)", expanded=True):
+    market_phase = st.selectbox("Fase de Mercado", ["Expansión", "Retroceso", "Consolidación"])
+    price_zone = st.select_slider("Zona de Precio (PDH/PDL)", options=["Discount", "Equilibrium", "Premium"], value="Equilibrium")
+    fvg_status = st.checkbox("¿Precio dentro de un FVG / Order Block?")
+    liquidity_target = st.selectbox("Objetivo de Liquidez (ERL)", ["PDH", "PDL", "Asia H/L", "Equal Highs/Lows"])
 
-st.sidebar.divider()
-st.sidebar.subheader("Paso 3: Radar (ATAS)")
-cvd_state = st.sidebar.selectbox("CVD / Delta", ["Agresión a favor de sesgo", "Divergencia detectada", "Neutral"])
-dom_walls = st.sidebar.checkbox("¿Muros >300 detectados?")
+# 3. RADAR (ATAS)
+with st.sidebar.expander("3. Confirmación (ATAS)", expanded=True):
+    cvd_behavior = st.selectbox("Comportamiento CVD", ["Divergencia Bullish", "Divergencia Bearish", "Absorción en Muro", "Agresión a Favor"])
+    dom_wall_level = st.number_input("Precio del Muro 300+", format="%.5f", value=0.00000)
+    dom_type = st.radio("Función del Muro", ["Soporte/Resistencia (Rebote)", "Imán (El precio va hacia allá)"])
 
-# --- LÓGICA DEL MOTOR DE ESCENARIOS ---
-bias_result = "FUERA DE MERCADO"
-probability = "Baja"
-color = "gray"
+# --- MOTOR DE LÓGICA REFINADA ---
+st.title("🏹 Estratega de Escenarios V2.0")
+st.caption("Combinando Estructura Institucional (TV) con Agresión Real (ATAS)")
 
-# Lógica Simplificada de la Matriz
-if cot_bias == "Net Long" and oi_delta > 0 and dxy_trend == "Bajista (Soporte Roto)":
-    bias_result = "EXPANSIÓN ALCISTA (A+)"
-    probability = "Alta"
-    color = "green"
-elif cot_bias == "Net Short" and oi_delta > 0 and dxy_trend == "Alcista (Resistencia Rota)":
-    bias_result = "EXPANSIÓN BAJISTA (A+)"
-    probability = "Alta"
-    color = "red"
-elif oi_delta < 0:
-    bias_result = "POSIBLE TRAMPA / LIQUIDACIÓN"
-    probability = "Media-Baja"
-    color = "orange"
+# Inicialización de variables de decisión
+decision = "ESPERAR"
+confidence = "Baja"
+scenario_text = "No se cumplen las condiciones de la Regla Cero."
 
-# --- DASHBOARD PRINCIPAL ---
-st.title("🛡️ Motor de Escenarios: Regla Cero")
-st.caption("Foco Técnico | Sin Suposiciones | Rigor Matemático")
+# LÓGICA ESCENARIO A+ (COMPRA)
+if cot_bias == "Comprador (Long)" and oi_delta > 5000 and dxy_state == "Distribución (Baja)":
+    if price_zone == "Discount" and cvd_behavior in ["Divergencia Bullish", "Absorción en Muro"]:
+        decision = "COMPRA (LONG A+)"
+        confidence = "Alta"
+        scenario_text = f"**Escenario de Expansión:** El COT y el OI confirman gasolina. El precio está en zona de DESCUENTO. ATAS muestra que los vendedores están siendo absorbidos. El imán es {liquidity_target}."
+    elif price_zone == "Premium":
+        decision = "EVITAR COMPRAS"
+        confidence = "Nula"
+        scenario_text = "⚠️ **PELIGRO:** El sesgo es alcista pero el precio está CARO (Premium). Espera retroceso a zona Discount para no entrar en el pico."
 
-col1, col2, col3 = st.columns(3)
-col1.metric("SESGO DIRECCIONAL", bias_result)
-col2.metric("PROBABILIDAD", probability)
-col3.metric("CONFLUENCIA DXY", dxy_trend)
+# LÓGICA ESCENARIO A+ (VENTA)
+elif cot_bias == "Vendedor (Short)" and oi_delta > 5000 and dxy_state == "Acumulación (Sube)":
+    if price_zone == "Premium" and cvd_behavior in ["Divergencia Bearish", "Absorción en Muro"]:
+        decision = "VENTA (SHORT A+)"
+        confidence = "Alta"
+        scenario_text = f"**Escenario de Distribución:** DXY fuerte y COT vendedor. Precio en zona PREMIUM. ATAS confirma agotamiento comprador. Buscamos {liquidity_target}."
+    elif price_zone == "Discount":
+        decision = "EVITAR VENTAS"
+        confidence = "Nula"
+        scenario_text = "⚠️ **PELIGRO:** El sesgo es bajista pero el precio está BARATO (Discount). Espera manipulación a Premium."
 
-st.divider()
-
-# --- GENERACIÓN DE NARRATIVA ---
-st.header("📖 Narrativa Técnica del Día")
-
-if bias_result == "EXPANSIÓN ALCISTA (A+)":
-    st.success(f"**Escenario de Alta Probabilidad:** El mercado tiene gasolina real (OI UP). "
-               f"Busca el **Judas Swing** por debajo de Asia Low ({asia_low}) para cargar largos.")
-    st.info(f"**Target Principal:** PDH en {pdh}. Si el CVD confirma agresión en el descuento, ejecuta con confianza.")
-
-elif bias_result == "EXPANSIÓN BAJISTA (A+)":
-    st.error(f"**Escenario de Alta Probabilidad:** Sesgo institucional vendedor confirmado. "
-             f"Busca manipulación por encima de Asia High o retroceso a FVG en Premium.")
-    st.info(f"**Target Principal:** PDL en {pdl}. Vigila muros de 300+ en el Smart DOM para proteger el SL.")
-
-else:
-    st.warning("⚠️ **ALERTA:** No hay confluencia clara entre COT, OI y DXY. El algoritmo recomienda esperar o buscar solo scalps rápidos en zonas de liquidez extrema.")
-
-st.divider()
-
-# --- CHECKLIST DE DISCIPLINA ---
-st.subheader("✅ Checklist de Ejecución (Regla Cero)")
+# --- DASHBOARD DE RESULTADOS ---
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.checkbox("¿El precio está en zona de descuento/premium?")
-    st.checkbox("¿Hubo toma de liquidez previa?")
+    st.metric("GATILLO", decision)
 with c2:
-    st.checkbox("¿El DXY confirma el movimiento?")
-    st.checkbox("¿CVD muestra divergencia o absorción?")
+    st.metric("CONFIANZA", confidence)
 with c3:
-    st.checkbox("¿El SL está protegido por un muro en el DOM?")
-    st.checkbox("¿Riesgo/Beneficio es mínimo 1:3?")
+    st.metric("VALOR OI", f"{oi_delta} CTR")
 
-if st.button("Guardar en Bitácora"):
-    st.write("Datos guardados. Mantén la disciplina.")
+st.divider()
+
+# NARRATIVA DETALLADA
+st.subheader("📝 Plan de Batalla")
+st.info(scenario_text)
+
+# TABLA DE CONFLUENCIAS
+st.subheader("📊 Confluencias Técnicas")
+col_a, col_b = st.columns(2)
+
+with col_a:
+    st.write("**TradingView (Ubicación)**")
+    st.write(f"📍 Fase: {market_phase}")
+    st.write(f"📍 Zona: {price_zone}")
+    st.write(f"📍 Target: {liquidity_target}")
+
+with col_b:
+    st.write("**ATAS (Ejecución)**")
+    st.write(f"⚡ CVD: {cvd_behavior}")
+    if dom_wall_level > 0:
+        st.write(f"🧱 Muro Detectado en: {dom_wall_level} ({dom_type})")
+    else:
+        st.write("🧱 No se reportan muros significativos.")
+
+st.divider()
+st.button("Registrar Sesión en Bitácora")
