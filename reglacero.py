@@ -1,3 +1,4 @@
+
 import streamlit as st
 from datetime import datetime
 import pytz
@@ -10,7 +11,7 @@ h_ny = now_ny.strftime("%H:%M:%S")
 f_ny = now_ny.strftime("%Y-%m-%d")
 
 # 2. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="REGLA CERO V11 | Manual Arbitrage", layout="wide")
+st.set_page_config(page_title="REGLA CERO V11.1 | Fixed", layout="wide")
 
 # 3. ESTILOS TERMINAL
 st.markdown("""
@@ -27,7 +28,6 @@ st.markdown("""
 st.sidebar.title("🎮 CENTRO DE MANDO")
 sesion = st.sidebar.radio("Elegir Sesión:", ["🇬🇧 LONDRES", "🇺🇸 NUEVA YORK"])
 
-# MODO LIVE
 st.sidebar.divider()
 st.sidebar.subheader("📡 MODO LIVE")
 auto_refresh = st.sidebar.toggle("Activar Auto-Refresco", value=False)
@@ -46,8 +46,7 @@ if sesion == "🇬🇧 LONDRES":
         poc = st.sidebar.number_input("POC", format="%.4f", value=1.0900)
     
     with st.sidebar.expander("3. ARBITRAJE & PRECIO", expanded=True):
-        # ENTRADA MANUAL DE ARBITRAJE
-        basis = st.sidebar.number_input("Arbitraje (Diferencia Puntos)", value=10.0, step=1.0)
+        basis = st.sidebar.number_input("Arbitraje (Pts)", value=10.0)
         now = st.sidebar.number_input("Precio Actual", format="%.4f", value=1.0905)
         bias = st.sidebar.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
 
@@ -56,7 +55,8 @@ if sesion == "🇬🇧 LONDRES":
     sd_15_n = al - (r_size * 1.5)
     
     # Lógica de Estado
-    state, color = "ESPERA", "#f59e0b"
+    state = "ESPERA"
+    color = "#f59e0b"
     if now < al:
         state = "JUDAS LONG" if now >= sd_15_n else "CONTINUACIÓN BAJA"
         color = "#00ff41" if "LONG" in state else "#ef4444"
@@ -69,7 +69,7 @@ if sesion == "🇬🇧 LONDRES":
     
     c1, c2, c3 = st.columns(3)
     c1.metric("ESTADO", state)
-    c2.metric("ARBITRAJE MANUAL", f"{basis:.1f} PTS")
+    c2.metric("ARBITRAJE", f"{basis:.1f} PTS")
     c3.metric("BIAS", bias)
 
     st.divider()
@@ -80,5 +80,42 @@ if sesion == "🇬🇧 LONDRES":
         dist_poc = (now - poc) * 10000
         st.write(f"**Vs POC Ayer:** {abs(dist_poc):.1f} pips ({'Sobre' if dist_poc > 0 else 'Bajo'})")
         
-        # LÓGICA SOLICITADA: < 40 ESTABLE
-        if abs(basis) < 4
+        # Arbitraje < 40 Estable
+        if abs(basis) < 40:
+            st.success(f"✅ ARBITRAJE ESTABLE: {basis:.1f}")
+        else:
+            st.error(f"🚨 PRESIÓN EN ARBITRAJE: {basis:.1f}")
+
+        st.write("---")
+        st.write("### 📏 Desviaciones Proyectadas")
+        la, lb = st.columns(2)
+        with la:
+            st.markdown(f'<div class="level-box" style="color:#ef4444;">1.5 SD: {sd_15_p:.4f}</div>', unsafe_allow_html=True)
+        with lb:
+            st.markdown(f'<div class="level-box" style="color:#00ff41;">-1.5 SD: {sd_15_n:.4f}</div>', unsafe_allow_html=True)
+
+    with col_r:
+        st.subheader("📸 Snapshot")
+        # Variables separadas para evitar el error de la linea 84
+        txt_price = "{:.4f}".format(now)
+        txt_basis = "{:.1f}".format(basis)
+        txt_poc = "{:.4f}".format(poc)
+        txt_range = "{:.4f} - {:.4f}".format(pdl, pdh)
+        
+        st.markdown(f"""
+        <div class="card">
+            <h2 style="color:{color};">{state}</h2>
+            <hr style="border: 0.5px solid #374151;">
+            <p><b>Precio:</b> {txt_price}</p>
+            <p><b>Arbitraje:</b> {txt_basis} pts</p>
+            <p><b>POC Ayer:</b> {txt_poc}</p>
+            <p><b>Rango:</b> {txt_range}</p>
+            <hr style="border: 0.5px solid #374151;">
+            <p style="font-size:0.8em; color:#8b949e;">{f_ny} {h_ny} NY TIME</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# REFRESH AUTOMÁTICO
+if auto_refresh:
+    time.sleep(refresh_rate)
+    st.rerun()
