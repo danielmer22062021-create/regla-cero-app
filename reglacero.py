@@ -1,7 +1,9 @@
 import streamlit as st
+import pandas as pd
+from datetime import datetime
 
-# Configuración de la página Pro
-st.set_page_config(page_title="Regla Cero V2.0 - Order Flow Engine", layout="wide")
+# Configuración Pro
+st.set_page_config(page_title="Regla Cero V3.0 - Auditoría Local", layout="wide")
 
 # Estilo Dark Pro
 st.markdown("""
@@ -15,88 +17,63 @@ st.markdown("""
 # --- SIDEBAR: DATOS MAESTROS ---
 st.sidebar.header("🛡️ Auditoría Regla Cero")
 
-# 1. MACRO (CME)
 with st.sidebar.expander("1. Energía (CME/COT)", expanded=True):
     cot_bias = st.selectbox("Sesgo Semanal COT", ["Comprador (Long)", "Vendedor (Short)", "Neutral"])
     oi_delta = st.number_input("Variación OI (Contratos)", value=0, step=1000)
     dxy_state = st.selectbox("Estado DXY", ["Distribución (Baja)", "Acumulación (Sube)", "Rango"])
 
-# 2. ESTRUCTURA (TradingView)
 with st.sidebar.expander("2. Mapa Maestro (TV)", expanded=True):
-    market_phase = st.selectbox("Fase de Mercado", ["Expansión", "Retroceso", "Consolidación"])
-    price_zone = st.select_slider("Zona de Precio (PDH/PDL)", options=["Discount", "Equilibrium", "Premium"], value="Equilibrium")
-    fvg_status = st.checkbox("¿Precio dentro de un FVG / Order Block?")
-    liquidity_target = st.selectbox("Objetivo de Liquidez (ERL)", ["PDH", "PDL", "Asia H/L", "Equal Highs/Lows"])
+    price_zone = st.select_slider("Zona de Precio", options=["Discount", "Equilibrium", "Premium"], value="Equilibrium")
+    liquidity_target = st.selectbox("Objetivo (ERL)", ["PDH", "PDL", "Asia H/L", "Equal Highs/Lows"])
 
-# 3. RADAR (ATAS)
 with st.sidebar.expander("3. Confirmación (ATAS)", expanded=True):
-    cvd_behavior = st.selectbox("Comportamiento CVD", ["Divergencia Bullish", "Divergencia Bearish", "Absorción en Muro", "Agresión a Favor"])
-    dom_wall_level = st.number_input("Precio del Muro 300+", format="%.5f", value=0.00000)
-    dom_type = st.radio("Función del Muro", ["Soporte/Resistencia (Rebote)", "Imán (El precio va hacia allá)"])
+    cvd_behavior = st.selectbox("Comportamiento CVD", ["Divergencia Bullish", "Divergencia Bearish", "Absorción", "Agresión a Favor"])
+    dom_wall = st.number_input("Muro 300+ en:", format="%.5f", value=0.00000)
 
-# --- MOTOR DE LÓGICA REFINADA ---
-st.title("🏹 Estratega de Escenarios V2.0")
-st.caption("Combinando Estructura Institucional (TV) con Agresión Real (ATAS)")
-
-# Inicialización de variables de decisión
+# --- LÓGICA DE ESCENARIOS ---
 decision = "ESPERAR"
 confidence = "Baja"
-scenario_text = "No se cumplen las condiciones de la Regla Cero."
-
-# LÓGICA ESCENARIO A+ (COMPRA)
 if cot_bias == "Comprador (Long)" and oi_delta > 5000 and dxy_state == "Distribución (Baja)":
-    if price_zone == "Discount" and cvd_behavior in ["Divergencia Bullish", "Absorción en Muro"]:
-        decision = "COMPRA (LONG A+)"
-        confidence = "Alta"
-        scenario_text = f"**Escenario de Expansión:** El COT y el OI confirman gasolina. El precio está en zona de DESCUENTO. ATAS muestra que los vendedores están siendo absorbidos. El imán es {liquidity_target}."
-    elif price_zone == "Premium":
-        decision = "EVITAR COMPRAS"
-        confidence = "Nula"
-        scenario_text = "⚠️ **PELIGRO:** El sesgo es alcista pero el precio está CARO (Premium). Espera retroceso a zona Discount para no entrar en el pico."
-
-# LÓGICA ESCENARIO A+ (VENTA)
+    decision = "COMPRA (LONG A+)" if price_zone == "Discount" else "EVITAR COMPRAS (CARO)"
+    confidence = "Alta" if "COMPRA" in decision else "Nula"
 elif cot_bias == "Vendedor (Short)" and oi_delta > 5000 and dxy_state == "Acumulación (Sube)":
-    if price_zone == "Premium" and cvd_behavior in ["Divergencia Bearish", "Absorción en Muro"]:
-        decision = "VENTA (SHORT A+)"
-        confidence = "Alta"
-        scenario_text = f"**Escenario de Distribución:** DXY fuerte y COT vendedor. Precio en zona PREMIUM. ATAS confirma agotamiento comprador. Buscamos {liquidity_target}."
-    elif price_zone == "Discount":
-        decision = "EVITAR VENTAS"
-        confidence = "Nula"
-        scenario_text = "⚠️ **PELIGRO:** El sesgo es bajista pero el precio está BARATO (Discount). Espera manipulación a Premium."
+    decision = "VENTA (SHORT A+)" if price_zone == "Premium" else "EVITAR VENTAS (BARATO)"
+    confidence = "Alta" if "VENTA" in decision else "Nula"
 
-# --- DASHBOARD DE RESULTADOS ---
+# --- DASHBOARD ---
+st.title("🏹 Sistema de Auditoría de Sesión")
 c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("GATILLO", decision)
-with c2:
-    st.metric("CONFIANZA", confidence)
-with c3:
-    st.metric("VALOR OI", f"{oi_delta} CTR")
+c1.metric("GATILLO", decision)
+c2.metric("CONFIANZA", confidence)
+c3.metric("OI DETECTADO", f"{oi_delta} CTR")
 
 st.divider()
 
-# NARRATIVA DETALLADA
-st.subheader("📝 Plan de Batalla")
-st.info(scenario_text)
+# --- PREPARACIÓN DE DESCARGA ---
+# Creamos un diccionario con los datos actuales
+data_to_save = {
+    "Fecha": [datetime.now().strftime("%Y-%m-%d %H:%M")],
+    "Sesgo_COT": [cot_bias],
+    "Variacion_OI": [oi_delta],
+    "DXY": [dxy_state],
+    "Zona_Precio": [price_zone],
+    "CVD_ATAS": [cvd_behavior],
+    "Muro_DOM": [dom_wall],
+    "Decision_Final": [decision]
+}
+df = pd.DataFrame(data_to_save)
+csv = df.to_csv(index=False).encode('utf-8')
 
-# TABLA DE CONFLUENCIAS
-st.subheader("📊 Confluencias Técnicas")
-col_a, col_b = st.columns(2)
+# --- INTERFAZ DE CIERRE ---
+st.subheader("📝 Plan y Registro")
+st.info(f"Escenario actual detectado bajo la Regla Cero: **{decision}**. Objetivo principal: **{liquidity_target}**.")
 
-with col_a:
-    st.write("**TradingView (Ubicación)**")
-    st.write(f"📍 Fase: {market_phase}")
-    st.write(f"📍 Zona: {price_zone}")
-    st.write(f"📍 Target: {liquidity_target}")
+# BOTÓN DE DESCARGA
+st.download_button(
+    label="📥 DESCARGAR REPORTE DE SESIÓN (CSV)",
+    data=csv,
+    file_name=f"auditoria_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+    mime="text/csv",
+)
 
-with col_b:
-    st.write("**ATAS (Ejecución)**")
-    st.write(f"⚡ CVD: {cvd_behavior}")
-    if dom_wall_level > 0:
-        st.write(f"🧱 Muro Detectado en: {dom_wall_level} ({dom_type})")
-    else:
-        st.write("🧱 No se reportan muros significativos.")
-
-st.divider()
-st.button("Registrar Sesión en Bitácora")
+st.caption("Nota: Al hacer clic, se guardará un archivo CSV con todos los parámetros técnicos de hoy.")
