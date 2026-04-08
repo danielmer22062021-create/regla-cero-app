@@ -1,10 +1,15 @@
 import streamlit as st
 from datetime import datetime
+import pytz
 
-# 1. Configuración Base
-st.set_page_config(page_title="REGLA CERO V8.5 | Value Radar", layout="wide")
+# 1. Configuración de Zona Horaria (NY)
+ny_tz = pytz.timezone('America/New_York')
+ny_now = datetime.now(ny_tz)
 
-# 2. Estética Terminal
+# 2. Configuración Base
+st.set_page_config(page_title="REGLA CERO V9.0 | NY Time", layout="wide")
+
+# 3. Estética Terminal
 st.markdown("""
     <style>
     .main { background-color: #05070a; color: #e0e0e0; }
@@ -25,26 +30,25 @@ st.sidebar.divider()
 if sesion_activa == "🇬🇧 LONDRES":
     st.sidebar.subheader("Configuración Londres")
     
-    with st.sidebar.expander("1. RANGO DÍA ANTERIOR (HTF)", expanded=True):
-        pdh = st.number_input("PDH (Máximo Ayer)", format="%.5f", value=1.09500)
-        pdl = st.number_input("PDL (Mínimo Ayer)", format="%.5f", value=1.08500)
-        p_poc = st.number_input("POC (Valor Ayer)", format="%.5f", value=1.09000)
+    with st.sidebar.expander("1. RANGO DÍA ANTERIOR (4D)", expanded=True):
+        pdh = st.number_input("PDH (Ayer)", format="%.4f", value=1.0950)
+        pdl = st.number_input("PDL (Ayer)", format="%.4f", value=1.0850)
+        p_poc = st.number_input("POC (Valor)", format="%.4f", value=1.0900)
 
-    with st.sidebar.expander("2. CAJA ASIA", expanded=True):
-        a_h = st.number_input("Asia High", format="%.5f", value=1.09200)
-        a_l = st.number_input("Asia Low", format="%.5f", value=1.08800)
+    with st.sidebar.expander("2. CAJA ASIA (4D)", expanded=True):
+        a_h = st.number_input("Asia High", format="%.4f", value=1.0920)
+        a_l = st.number_input("Asia Low", format="%.4f", value=1.0880)
 
     with st.sidebar.expander("3. DESVIACIONES MANUALES", expanded=True):
-        sd_15_pos = st.number_input("SD +1.5 (Venta)", format="%.5f", value=a_h + 0.0015)
-        sd_25_pos = st.number_input("SD +2.5 (Extrema)", format="%.5f", value=a_h + 0.0025)
-        sd_15_neg = st.number_input("SD -1.5 (Compra)", format="%.5f", value=a_l - 0.0015)
-        sd_25_neg = st.number_input("SD -2.5 (Extrema)", format="%.5f", value=a_l - 0.0025)
+        sd_15_pos = st.number_input("SD +1.5 (Venta)", format="%.4f", value=a_h + 0.0015)
+        sd_15_neg = st.number_input("SD -1.5 (Compra)", format="%.4f", value=a_l - 0.0015)
     
     with st.sidebar.expander("4. ARBITRAJE & CONTEXTO", expanded=True):
-        f_p = st.number_input("Futuros CME", format="%.5f", value=1.09100)
-        s_p = st.number_input("Spot Broker", format="%.5f", value=1.09085)
-        v_basis = (f_p - s_p) * 100000 
-        now_p = st.number_input("Precio Actual", format="%.5f", value=1.09050)
+        f_p = st.number_input("Futuros CME", format="%.4f", value=1.0910)
+        s_p = st.number_input("Spot Broker", format="%.4f", value=1.0908)
+        # Basis en puntos
+        v_basis = (f_p - s_p) * 10000 
+        now_p = st.number_input("Precio Actual", format="%.4f", value=1.0905)
         bias_d = st.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
 
     # Gestión de Riesgo
@@ -55,15 +59,15 @@ if sesion_activa == "🇬🇧 LONDRES":
     signal = "ESPERA"
     s_color = "#f59e0b"
     
-    if bias_d == "Alcista" and now_p <= sd_15_neg and now_p >= pdl:
-        signal = "JUDAS LONG (VALUE BUY)"
+    if bias_d == "Alcista" and now_p <= sd_15_neg:
+        signal = "JUDAS LONG"
         s_color = "#00ff41"
-    elif bias_d == "Bajista" and now_p >= sd_15_pos and now_p <= pdh:
-        signal = "JUDAS SHORT (VALUE SELL)"
+    elif bias_d == "Bajista" and now_p >= sd_15_pos:
+        signal = "JUDAS SHORT"
         s_color = "#ff4b4b"
 
     # --- INTERFAZ LONDRES ---
-    st.markdown('<div class="session-header"><h1>🇬🇧 LONDON SESSION TERMINAL</h1></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="session-header"><h1>🇬🇧 LONDON TERMINAL | NY TIME: {ny_now.strftime("%H:%M")}</h1></div>', unsafe_allow_html=True)
     
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("ESTADO LND", signal)
@@ -75,50 +79,40 @@ if sesion_activa == "🇬🇧 LONDRES":
 
     col_l, col_r = st.columns([1.5, 1])
     with col_l:
-        st.subheader("🕵️ Radar de Niveles")
+        st.subheader("🕵️ Radar de Valor")
         
-        # --- PRECIO VS VALOR DÍA ANTERIOR ---
         dist_poc = (now_p - p_poc) * 10000
-        st.write(f"**Precio vs Valor Día Anterior (POC):** {'Sobre' if dist_poc > 0 else 'Bajo'} el POC ({abs(dist_poc):.1f} pips)")
+        st.write(f"**Distancia al POC:** {abs(dist_poc):.1f} pips ({'Sobre' if dist_poc > 0 else 'Bajo'})")
         
-        # --- ESTADO DENTRO DEL RANGO PDH/PDL ---
         if pdl <= now_p <= pdh:
-            st.info(f"📍 El precio está dentro del rango del día anterior (Rango: {pdl:.5f} - {pdh:.5f})")
-        elif now_p > pdh:
-            st.warning("🚀 El precio ha roto el PDH (Máximo de ayer). Buscando Liquidez Externa.")
+            st.info(f"📍 Precio dentro del Rango HTF ({pdl:.4f} - {pdh:.4f})")
         else:
-            st.warning("📉 El precio ha roto el PDL (Mínimo de ayer). Buscando Liquidez Externa.")
+            st.warning(f"🚀 Fuera de Rango: PDL {pdl:.4f} | PDH {pdh:.4f}")
 
-        # Lógica de Arbitraje < 40
         if abs(v_basis) < 40:
             st.success(f"✅ Arbitraje Estable ({v_basis:.1f})")
         else:
             st.error(f"🚨 Presión en Arbitraje ({v_basis:.1f})")
 
         st.write("---")
-        st.write("### 📏 Niveles de Desviación Proyectados")
-        c_sd1, c_sd2 = st.columns(2)
-        with c_sd1:
-            st.markdown(f'<div class="level-box" style="color:#ff4b4b;">Venta SD +1.5: {sd_15_pos:.5f}</div>', unsafe_allow_html=True)
-        with c_sd2:
-            st.markdown(f'<div class="level-box" style="color:#00ff41;">Compra SD -1.5: {sd_15_neg:.5f}</div>', unsafe_allow_html=True)
+        st.write("### 📏 Niveles Manuales")
+        st.markdown(f'<div class="level-box" style="color:#ff4b4b;">Venta SD +1.5: {sd_15_pos:.4f}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="level-box" style="color:#00ff41;">Compra SD -1.5: {sd_15_neg:.4f}</div>', unsafe_allow_html=True)
 
     with col_r:
-        st.subheader("📸 London Snapshot")
-        fecha_h = datetime.now().strftime('%Y-%m-%d %H:%M')
+        st.subheader("📸 Snapshot")
         st.markdown(f"""
         <div class="card">
             <h2 style="color:{s_color};">{signal}</h2>
             <hr style="border-color:#374151;">
-            <p><b>Precio:</b> {now_p:.5f}</p>
-            <p><b>POC Ayer:</b> {p_poc:.5f}</p>
-            <p><b>Rango Ayer:</b> {pdl:.5f} - {pdh:.5f}</p>
+            <p><b>Precio:</b> {now_p:.4f}</p>
+            <p><b>POC Ayer:</b> {p_poc:.4f}</p>
             <p><b>Basis:</b> {v_basis:.1f} pts</p>
             <hr style="border-color:#374151;">
-            <p style="font-size:0.8em; color:#8b949e;">{fecha_h}</p>
+            <p style="font-size:0.8em; color:#8b949e;">NY TIME: {ny_now.strftime('%Y-%m-%d %H:%M')}</p>
         </div>
         """, unsafe_allow_html=True)
 
 else:
-    st.markdown('<div class="session-header" style="background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);"><h1>🇺🇸 NEW YORK SESSION</h1></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="session-header" style="background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);"><h1>🇺🇸 NY SESSION | NY TIME: {ny_now.strftime("%H:%M")}</h1></div>', unsafe_allow_html=True)
     st.info("Configuración de NY pendiente.")
