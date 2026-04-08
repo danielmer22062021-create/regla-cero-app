@@ -40,7 +40,7 @@ if sesion_activa == "🇬🇧 LONDRES":
         a_h = st.number_input("Asia High", format="%.4f", value=1.0920)
         a_l = st.number_input("Asia Low", format="%.4f", value=1.0880)
 
-    with st.sidebar.expander("3. DESVIACIONES MANUALES", expanded=True):
+    with st.sidebar.expander("3. DESVIACIONES", expanded=True):
         sd_15_pos = st.number_input("SD +2.5 (Venta)", format="%.4f", value=a_h + 0.0015)
         sd_15_neg = st.number_input("SD -2.5 (Compra)", format="%.4f", value=a_l - 0.0015)
     
@@ -60,10 +60,10 @@ if sesion_activa == "🇬🇧 LONDRES":
     signal = "ESPERA"
     s_color = "#f59e0b"
     
-    if bias_d == "Alcista" and now_p <= sd_15_neg:
+    if bias_d == "Alcista" and now_p <= sd_25_neg:
         signal = "JUDAS LONG"
         s_color = "#00ff41"
-    elif bias_d == "Bajista" and now_p >= sd_15_pos:
+    elif bias_d == "Bajista" and now_p >= sd_25_pos:
         signal = "JUDAS SHORT"
         s_color = "#ff4b4b"
 
