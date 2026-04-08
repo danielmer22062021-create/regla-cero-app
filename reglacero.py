@@ -1,95 +1,104 @@
+
 import streamlit as st
 from datetime import datetime
 
-# 1. Configuración de la Terminal
-st.set_page_config(page_title="REGLA CERO V5.2 | PRO", layout="wide")
+# 1. Configuración Base
+st.set_page_config(page_title="REGLA CERO V5.3", layout="wide")
 
-# 2. Estética Profesional (CSS)
+# 2. Estética Pro
 st.markdown("""
     <style>
     .main { background-color: #05070a; color: #e0e0e0; }
     [data-testid="stSidebar"] { background-color: #0a0d12; border-right: 1px solid #1f2937; }
     .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; }
-    .snapshot-card { background-color: #111827; padding: 20px; border: 2px solid #374151; border-radius: 15px; }
+    .card { background-color: #111827; padding: 20px; border: 1px solid #374151; border-radius: 15px; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Sidebar: Auditoría Técnica
-st.sidebar.title("AUDITORIA")
+# 3. Sidebar: Datos de Auditoría
+st.sidebar.title("📊 AUDITORÍA")
 
-with st.sidebar.expander("1. BASIS (ARBITRAJE)", expanded=True):
-    f_price = st.number_input("Futuros CME", format="%.5f", value=1.09100)
-    s_price = st.number_input("Spot Broker", format="%.5f", value=1.09085)
-    calc_basis = (f_price - s_price) * 10000 
+with st.sidebar.expander("1. ARBITRAJE (BASIS)", expanded=True):
+    fut_p = st.number_input("Futuros", format="%.5f", value=1.09100)
+    spot_p = st.number_input("Spot", format="%.5f", value=1.09085)
+    v_basis = (fut_p - spot_p) * 10000
 
-with st.sidebar.expander("2. NIVELES HTF", expanded=True):
-    p_high = st.number_input("PDH (Ayer)", format="%.5f", value=1.09500)
-    p_low = st.number_input("PDL (Ayer)", format="%.5f", value=1.08500)
-    p_poc = st.number_input("POC (Ayer)", format="%.5f", value=1.09000)
+with st.sidebar.expander("2. NIVELES AYER", expanded=True):
+    h_p = st.number_input("PDH", format="%.5f", value=1.09500)
+    l_p = st.number_input("PDL", format="%.5f", value=1.08500)
+    poc_p = st.number_input("POC", format="%.5f", value=1.09000)
 
-with st.sidebar.expander("3. RANGO ASIA", expanded=True):
-    a_high = st.number_input("Asia High", format="%.5f", value=1.09200)
-    a_low = st.number_input("Asia Low", format="%.5f", value=1.08800)
+with st.sidebar.expander("3. ASIA RANGE", expanded=True):
+    ah_p = st.number_input("Asia High", format="%.5f", value=1.09200)
+    al_p = st.number_input("Asia Low", format="%.5f", value=1.08800)
 
 with st.sidebar.expander("4. CONTEXTO", expanded=True):
-    c_price = st.number_input("Precio Actual", format="%.5f", value=1.09050)
-    d_bias = st.selectbox("Sesgo Diario", ["Alcista", "Bajista", "Rango"])
-    dxy_val = st.selectbox("DXY", ["Debil", "Fuerte", "Rango"])
-    oi_contracts = st.number_input("OI CME", value=0)
+    now_p = st.number_input("Precio Actual", format="%.5f", value=1.09050)
+    bias_d = st.selectbox("Bias Diario", ["Alcista", "Bajista", "Rango"])
+    oi_c = st.number_input("OI CME", value=0)
 
-with st.sidebar.expander("5. GESTION", expanded=False):
-    balance = st.number_input("Capital $", value=10000)
-    sl_input = st.number_input("SL Pips", value=10)
+with st.sidebar.expander("5. GESTIÓN", expanded=False):
+    cap = st.number_input("Capital", value=10000)
+    sl_p = st.number_input("SL Pips", value=10)
 
-# --- LOGICA DE TRADING ---
-gatillo = "ESPERA"
-status_color = "#f59e0b"
+# --- LÓGICA DE TRADING ---
+signal = "ESPERA"
+s_color = "#f59e0b"
 
-# Filtro de seguridad para lotaje (evitar division por cero)
-divisor = (sl_input * 10)
-lotaje_final = (balance * 0.01) / divisor if divisor > 0 else 0.0
+# Cálculo de Lotes (Seguro)
+divisor = (sl_p * 10)
+lots = (cap * 0.01) / divisor if divisor > 0 else 0.0
 
-if d_bias == "Alcista" and c_price < a_low and c_price >= p_low:
-    gatillo = "COMPRA (JUDAS)"
-    status_color = "#00ff41"
-elif d_bias == "Bajista" and c_price > a_high and c_price <= p_high:
-    gatillo = "VENTA (JUDAS)"
-    status_color = "#ff4b4b"
+if bias_d == "Alcista" and now_p < al_p and now_p >= l_p:
+    signal = "COMPRA (JUDAS)"
+    s_color = "#00ff41"
+elif bias_d == "Bajista" and now_p > ah_p and now_p <= h_p:
+    signal = "VENTA (JUDAS)"
+    s_color = "#ff4b4b"
 
 # --- INTERFAZ ---
-st.title("🛡️ REGLA CERO - V5.2")
+st.title("🛡️ TERMINAL REGLA CERO")
 
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-col_m1.metric("GATILLO", gatillo)
-col_m2.metric("BASIS", f"{calc_basis:.2f}")
-col_m3.metric("LOTS", f"{lotaje_final:.2f}")
-col_m4.metric("OI", f"{oi_contracts}")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("GATILLO", signal)
+c2.metric("BASIS", f"{v_basis:.2f}")
+c3.metric("LOTS", f"{lots:.2f}")
+c4.metric("OI", f"{oi_c}")
 
 st.divider()
 
-left_col, right_col = st.columns([1.5, 1])
+col_l, col_r = st.columns([1.5, 1])
 
-with left_col:
-    st.subheader("Analisis de Flujo")
-    distancia_poc = (c_price - p_poc) * 10000
-    st.write(f"Distancia al POC: {distancia_poc:.1f} pips")
+with col_l:
+    st.subheader("Análisis de Flujo")
+    p_dist = (now_p - poc_p) * 10000
+    st.write(f"Distancia al POC: {p_dist:.1f} pips")
     
-    if abs(calc_basis) > 2.5:
-        st.warning(f"BASIS ALTO: {calc_basis:.2f}. Arbitraje bajo presion.")
+    if abs(v_basis) > 2.5:
+        st.error(f"BASIS ALTO: {v_basis:.2f}")
     else:
-        st.success("BASIS NORMAL. Arbitraje estable.")
+        st.success("BASIS ESTABLE")
     
     st.write("---")
-    st.checkbox("¿El precio esta en zona de valor?")
-    st.checkbox("¿Confirmacion en ATAS detectada?")
+    st.checkbox("¿Precio en Zona de Valor?")
+    st.checkbox("¿Confirmación ATAS?")
 
-with right_col:
-    # Ficha Snapshot limpia
-    st.markdown(f"""
-    <div class="snapshot-card">
-        <h3 style="color:{status_color}; text-align:center;">{gatillo}</h3>
+with col_r:
+    st.subheader("📸 Snapshot")
+    # Fecha formateada antes para evitar errores en el f-string
+    fecha_h = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    # Construcción limpia de la ficha
+    ficha_html = f"""
+    <div class="card">
+        <h2 style="color:{s_color};">{signal}</h2>
         <hr style="border-color:#374151;">
-        <p><b>Precio:</b> {c_price:.5f}</p>
-        <p><b>Asia:</b> {a_low:.5f} / {a_high:.5f}</p>
-        <p><b>POC:</b> {p_poc:.5f}</p>
-        <p><b>Basis:</b> {calc_basis
+        <p><b>Precio:</b> {now_p:.5f}</p>
+        <p><b>Asia:</b> {al_p:.5f} / {ah_p:.5f}</p>
+        <p><b>POC:</b> {poc_p:.5f}</p>
+        <p><b>Basis:</b> {v_basis:.2f}</p>
+        <hr style="border-color:#374151;">
+        <p style="font-size:0.8em; color:#8b949e;">{fecha_h}</p>
+    </div>
+    """
+    st.markdown(ficha_html, unsafe_allow_html=True)
