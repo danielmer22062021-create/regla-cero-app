@@ -60,10 +60,10 @@ if sesion_activa == "🇬🇧 LONDRES":
     signal = "ESPERA"
     s_color = "#f59e0b"
     
-    if bias_d == "Alcista" and now_p <= sd_25_neg:
+    if bias_d == "Alcista" and now_p <= sd_15_neg:
         signal = "JUDAS LONG"
         s_color = "#00ff41"
-    elif bias_d == "Bajista" and now_p >= sd_25_pos:
+    elif bias_d == "Bajista" and now_p >= sd_15_pos:
         signal = "JUDAS SHORT"
         s_color = "#ff4b4b"
 
