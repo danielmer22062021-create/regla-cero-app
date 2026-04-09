@@ -1,118 +1,93 @@
 import streamlit as st
+import pandas as pd
 from datetime import datetime
-import pytz
+import os
 
-# 1. ZONA HORARIA NY
-tz_ny = pytz.timezone('America/New_York')
-now_ny = datetime.now(tz_ny)
-h_ny = now_ny.strftime("%H:%M")
-f_ny = now_ny.strftime("%Y-%m-%d")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="REGLA CERO | Macro Terminal", layout="wide")
 
-# 2. CONFIGURACIÓN
-st.set_page_config(page_title="REGLA CERO | One-Page Terminal", layout="wide")
-
-# 3. ESTILO MINIMALISTA NEÓN
+# 2. ESTÉTICA TERMINAL (DARK MODE)
 st.markdown("""
-<style>
+    <style>
     .main { background-color: #05070a; color: #e0e0e0; }
-    .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; text-align: center; }
-    .card { background-color: #111827; padding: 25px; border: 1px solid #374151; border-radius: 20px; text-align: center; margin-top: 20px; }
-    .status-msg { padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin: 10px 0; }
-    .stButton>button { width: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); color: white; border: none; padding: 15px; font-weight: bold; border-radius: 10px; }
-</style>
-""", unsafe_allow_html=True)
+    .stMetric { background-color: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #1e293b; }
+    .conclusion-box { background-color: #111827; padding: 20px; border-left: 5px solid #3b82f6; border-radius: 5px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ---
-st.title("🏹 TERMINAL REGLA CERO")
-st.subheader(f"NY Time: {h_ny} | {f_ny}")
-st.write("Introduce los datos de la sesión y presiona el botón para auditar.")
+# 3. BASE DE DATOS LOCAL (CSV)
+DB_FILE = "bitacora_macro.csv"
 
-# --- AMBIENTE ÚNICO DE ENTRADA (FORMULARIO) ---
-with st.form("audit_form"):
-    col1, col2, col3 = st.columns(3)
+def save_data(data_dict):
+    df = pd.DataFrame([data_dict])
+    if not os.path.isfile(DB_FILE):
+        df.to_csv(DB_FILE, index=False)
+    else:
+        df.to_csv(DB_FILE, mode='a', header=False, index=False)
+
+# --- SIDEBAR: ENTRADA DE DATOS ---
+st.sidebar.title("📊 DATA ENTRY")
+fecha = st.sidebar.date_input("Fecha", datetime.now())
+
+with st.sidebar.expander("1. INDICADORES (Data Dump)", expanded=True):
+    pce = st.number_input("Core PCE (%)", format="%.1f")
+    gdp = st.number_input("GDP Final (%)", format="%.1f")
+    claims = st.number_input("Jobless Claims (K)", value=210)
+    income = st.number_input("Personal Income (%)", format="%.1f")
+
+with st.sidebar.expander("2. REGLA CERO (CME)", expanded=True):
+    oi_change = st.number_input("OI Change", value=0)
+    clearport = st.number_input("ClearPort Contracts", value=0)
+    dxy_close = st.number_input("DXY Close", format="%.2f")
+
+# --- SECCIÓN CENTRAL: ANÁLISIS ---
+st.title("🛡️ REGLA CERO: BITÁCORA FUNDAMENTAL")
+st.write(f"Auditoría para el día: **{fecha}**")
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.subheader("📰 Resumen de Artículos (TradingEconomics)")
+    articulos_input = st.text_area("Pega aquí los puntos clave de los artículos...", height=200)
     
-    with col1:
-        st.markdown("### 🌏 Caja de Asia")
-        ah = st.number_input("Asia High", format="%.4f", value=1.0920)
-        al = st.number_input("Asia Low", format="%.4f", value=1.0880)
-        now_p = st.number_input("Precio Actual", format="%.4f", value=1.0905)
+    # Lógica de conclusión automática basada en los datos
+    if st.button("GENERAR CONCLUSIÓN DIARIA"):
+        # Lógica de IA Simplificada (Frialdad Matemática)
+        bias_macro = "NEUTRAL"
+        if pce >= 0.4 and gdp <= 0.5:
+            bias_macro = "ESTANFLACIÓN (Bajista Euro / Alcista Dólar)"
+        elif pce < 0.3 and gdp > 1.0:
+            bias_macro = "GOLDILOCKS (Alcista Euro)"
+        
+        concl_diaria = f"BIAS: {bias_macro}. El mercado muestra liquidación de {oi_change} contratos con un PCE en {pce}%. La narrativa de los artículos confirma debilidad en ingresos ({income}%)."
+        
+        st.markdown(f'<div class="conclusion-box"><h4>🔍 VERDICTO INSTITUCIONAL:</h4><p>{concl_diaria}</p></div>', unsafe_allow_html=True)
+        
+        # Guardar en DB
+        data = {
+            "fecha": fecha, "pce": pce, "gdp": gdp, "claims": claims, 
+            "income": income, "oi": oi_change, "clearport": clearport,
+            "dxy": dxy_close, "articulos": articulos_input, "conclusion": concl_diaria
+        }
+        save_data(data)
+        st.success("Día guardado en la bitácora.")
 
-    with col2:
-        st.markdown("### 📊 Valor de Ayer")
-        pdh = st.number_input("PDH (Máximo)", format="%.4f", value=1.0950)
-        pdl = st.number_input("PDL (Mínimo)", format="%.4f", value=1.0850)
-        poc = st.number_input("POC (Valor)", format="%.4f", value=1.0900)
+with col2:
+    st.subheader("📋 Checkpoint de Sesión")
+    st.checkbox("¿El DXY rompió el nivel psicológico?")
+    st.checkbox("¿Hubo divergencia precio/OI?")
+    st.checkbox("¿La noticia causó un Judas Swing?")
 
-    with col3:
-        st.markdown("### ⛓️ Contexto")
-        basis = st.number_input("Arbitraje (Puntos)", value=10.0)
-        bias = st.selectbox("Sesgo Diario", ["Alcista", "Bajista", "Rango"])
-        session = st.selectbox("Sesión Actual", ["Londres", "Nueva York"])
+# --- HISTÓRICO Y CIERRE SEMANAL ---
+st.divider()
+st.subheader("📈 TENDENCIA SEMANAL")
 
-    # BOTÓN DE ACCIÓN
-    submitted = st.form_submit_button("AUDITAR SESIÓN")
-
-# --- LÓGICA Y RESULTADOS (Solo se muestran al dar click) ---
-if submitted:
-    # Cálculos
-    r_size = ah - al
-    sd15_p = ah + (r_size * 1.5)
-    sd15_n = al - (r_size * 1.5)
-    dist_poc = (now_p - poc) * 10000
+if os.path.isfile(DB_FILE):
+    history_df = pd.read_csv(DB_FILE)
+    st.dataframe(history_df.tail(5), use_container_width=True)
     
-    # Lógica de Estado
-    state = "ESPERA"
-    color = "#f59e0b"
-    if now_p < al:
-        state = "JUDAS LONG" if now_p >= sd15_n else "EXPANSIÓN BAJA"
-        color = "#00ff41" if "LONG" in state else "#ef4444"
-    elif now_p > ah:
-        state = "JUDAS SHORT" if now_p <= sd15_p else "EXPANSIÓN ALZA"
-        color = "#ef4444" if "SHORT" in state else "#00ff41"
-
-    st.divider()
-
-    # Layout de Resultados
-    res_col1, res_col2 = st.columns([1.5, 1])
-
-    with res_col1:
-        st.header("🎯 Veredicto Técnico")
-        st.metric("ESTADO ACTUAL", state)
-        
-        # Sensor Arbitraje < 40
-        if abs(basis) < 40:
-            st.success(f"✅ ARBITRAJE ESTABLE: {basis:.1f} pts")
-        else:
-            st.error(f"🚨 PRESIÓN EN ARBITRAJE: {basis:.1f} pts")
-            
-        st.write(f"**Distancia al Valor (POC):** {abs(dist_poc):.1f} pips ({'Sobre' if dist_poc > 0 else 'Bajo'})")
-        
-        # Niveles Proyectados
-        st.markdown("### 📏 Niveles de Referencia")
-        st.write(f"Venta (1.5 SD): **{sd15_p:.4f}**")
-        st.write(f"Compra (-1.5 SD): **{sd15_n:.4f}**")
-        st.write(f"Rango HTF: **{pdl:.4f} - {pdh:.4f}**")
-
-    with res_col2:
-        st.header("📸 Snapshot")
-        # Variables de texto para el Snapshot
-        p_txt = f"{now_p:.4f}"
-        b_txt = f"{basis:.1f}"
-        poc_txt = f"{poc:.4f}"
-        range_txt = f"{pdl:.4f}-{pdh:.4f}"
-        
-        st.markdown(f"""
-        <div class="card">
-            <h2 style="color:{color};">{state}</h2>
-            <hr style="border: 0.5px solid #374151;">
-            <p><b>Precio:</b> {p_txt}</p>
-            <p><b>Basis:</b> {b_txt} pts</p>
-            <p><b>POC Ayer:</b> {poc_txt}</p>
-            <p><b>Rango HTF:</b> {range_txt}</p>
-            <p><b>Bias:</b> {bias}</p>
-            <hr style="border: 0.5px solid #374151;">
-            <p style="font-size:0.8em; color:#8b949e;">{f_ny} {h_ny} NY TIME</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Gráfico de OI vs Precio (Simulado)
+    st.line_chart(history_df.set_index('fecha')[['oi']])
 else:
-    st.info("Ingresa los datos arriba y presiona el botón para generar el análisis.")
+    st.info("Aún no hay datos guardados para mostrar tendencias.")
+
